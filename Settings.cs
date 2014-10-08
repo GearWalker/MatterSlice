@@ -234,9 +234,6 @@ namespace MatterHackers.MatterSlice
         public int raftSurfaceLineSpacing_um { get { return extrusionWidth_um * 400 / 400; } } // .4 mm for .4 mm nozzle
         public int raftSurfaceLayers { get { return 2; } }
 
-        // object transform
-        public FMatrix3x3 modelRotationMatrix = new FMatrix3x3();
-
         [SettingDescription("Describes if 'positionToPlaceObjectCenter' should be used.")]
         public bool centerObjectInXy;
         public DoublePoint positionToPlaceObjectCenter;

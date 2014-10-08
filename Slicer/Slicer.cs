@@ -24,6 +24,7 @@ using System.Diagnostics;
 using System.IO;
 
 using MatterSlice.ClipperLib;
+using MatterHackers.PolygonMesh;
 
 namespace MatterHackers.MatterSlice
 {
@@ -44,7 +45,7 @@ namespace MatterHackers.MatterSlice
         public Point3 modelSize;
         public Point3 modelMin;
 
-        public Slicer(OptimizedVolume ov, int initialLayerThickness, int layerThickness, ConfigConstants.REPAIR_OUTLINES outlineRepairTypes)
+        public Slicer(Mesh ov, int initialLayerThickness, int layerThickness, ConfigConstants.REPAIR_OUTLINES outlineRepairTypes)
         {
             modelSize = ov.parentModel.size_um;
             modelMin = ov.parentModel.minXYZ_um;

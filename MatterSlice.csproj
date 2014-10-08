@@ -104,12 +104,6 @@
     <Compile Include="gcodeExport.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="optimizedModel.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="SimpleModel.cs" />
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="AvoidCrossingPerimeters.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -165,6 +159,11 @@
       <Install>true</Install>
     </BootstrapperPackage>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="..\agg-sharp\PolygonMesh\PolygonMesh.csproj">
+      <Project>{86F6AAF2-9B50-40B8-A427-1897D76471C5}</Project>
+      <Name>PolygonMesh</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>
