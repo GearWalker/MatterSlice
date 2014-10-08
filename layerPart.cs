@@ -99,8 +99,8 @@ namespace MatterHackers.MatterSlice
         {
             StreamWriter streamToWriteTo = new StreamWriter(filename);
             streamToWriteTo.Write("<!DOCTYPE html><html><body>");
-            Point3 modelSize = storage.modelSize;
-            Point3 modelMin = storage.modelMin;
+            Point3 modelSize = storage.modelSize_um;
+            Point3 modelMin = storage.modelMin_um;
 
             for (int volumeIdx = 0; volumeIdx < storage.volumes.Count; volumeIdx++)
             {

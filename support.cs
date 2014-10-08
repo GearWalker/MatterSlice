@@ -47,14 +47,14 @@ namespace MatterHackers.MatterSlice
         {
             if (pointToCheckIfNeedsSupport.X < 1
                 || pointToCheckIfNeedsSupport.Y < 1
-                || pointToCheckIfNeedsSupport.X >= supportStorage.gridWidth - 1
-                || pointToCheckIfNeedsSupport.Y >= supportStorage.gridHeight - 1
-                || done[pointToCheckIfNeedsSupport.X + pointToCheckIfNeedsSupport.Y * supportStorage.gridWidth])
+                || pointToCheckIfNeedsSupport.X >= supportStorage.gridWidth_um - 1
+                || pointToCheckIfNeedsSupport.Y >= supportStorage.gridHeight_um - 1
+                || done[pointToCheckIfNeedsSupport.X + pointToCheckIfNeedsSupport.Y * supportStorage.gridWidth_um])
             {
                 return false;
             }
 
-            int gridIndex = (int)(pointToCheckIfNeedsSupport.X + pointToCheckIfNeedsSupport.Y * supportStorage.gridWidth);
+            int gridIndex = (int)(pointToCheckIfNeedsSupport.X + pointToCheckIfNeedsSupport.Y * supportStorage.gridWidth_um);
 
             if (generateInternalSupport)
             {
@@ -115,14 +115,14 @@ namespace MatterHackers.MatterSlice
         {
             if (pointToCheckIfNeedsSupport.X < 1
                 || pointToCheckIfNeedsSupport.Y < 1
-                || pointToCheckIfNeedsSupport.X >= supportStorage.gridWidth - 1
-                || pointToCheckIfNeedsSupport.Y >= supportStorage.gridHeight - 1
-                || done[pointToCheckIfNeedsSupport.X + pointToCheckIfNeedsSupport.Y * supportStorage.gridWidth])
+                || pointToCheckIfNeedsSupport.X >= supportStorage.gridWidth_um - 1
+                || pointToCheckIfNeedsSupport.Y >= supportStorage.gridHeight_um - 1
+                || done[pointToCheckIfNeedsSupport.X + pointToCheckIfNeedsSupport.Y * supportStorage.gridWidth_um])
             {
                 return false;
             }
 
-            int gridIndex = (int)(pointToCheckIfNeedsSupport.X + pointToCheckIfNeedsSupport.Y * supportStorage.gridWidth);
+            int gridIndex = (int)(pointToCheckIfNeedsSupport.X + pointToCheckIfNeedsSupport.Y * supportStorage.gridWidth_um);
 
             if (generateInternalSupport)
             {
@@ -198,14 +198,14 @@ namespace MatterHackers.MatterSlice
             while (true)
             {
                 IntPoint endPoint = startPoint;
-                done[endPoint.X + endPoint.Y * supportStorage.gridWidth] = true;
+                done[endPoint.X + endPoint.Y * supportStorage.gridWidth_um] = true;
                 while (checkIfSupportNeeded(endPoint + new IntPoint(1, 0), z))
                 {
                     endPoint.X++;
-                    done[endPoint.X + endPoint.Y * supportStorage.gridWidth] = true;
+                    done[endPoint.X + endPoint.Y * supportStorage.gridWidth_um] = true;
                 }
-                tmpPoly.Add(startPoint * supportStorage.gridScale + supportStorage.gridOffset - new IntPoint(supportStorage.gridScale / 2, 0));
-                poly.Add(endPoint * supportStorage.gridScale + supportStorage.gridOffset);
+                tmpPoly.Add(startPoint * supportStorage.gridScale + supportStorage.gridOffset_um - new IntPoint(supportStorage.gridScale / 2, 0));
+                poly.Add(endPoint * supportStorage.gridScale + supportStorage.gridOffset_um);
                 startPoint.Y++;
                 while (!checkIfSupportNeeded(startPoint, z) && startPoint.X <= endPoint.X)
                 {
@@ -244,13 +244,13 @@ namespace MatterHackers.MatterSlice
 
             this.interfaceZDistance_um = storage.interfaceLayers * supportZDistance_um;
 
-            done = new bool[storage.gridWidth * storage.gridHeight];
+            done = new bool[storage.gridWidth_um * storage.gridHeight_um];
 
-            for (int y = 1; y < storage.gridHeight; y++)
+            for (int y = 1; y < storage.gridHeight_um; y++)
             {
-                for (int x = 1; x < storage.gridWidth; x++)
+                for (int x = 1; x < storage.gridWidth_um; x++)
                 {
-                    if (!done[x + y * storage.gridWidth])
+                    if (!done[x + y * storage.gridWidth_um])
                     {
                         if (needSupportAt(new IntPoint(x, y), z))
                         {

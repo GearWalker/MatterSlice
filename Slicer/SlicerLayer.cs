@@ -24,6 +24,7 @@ using System.Diagnostics;
 using System.IO;
 
 using MatterSlice.ClipperLib;
+using MatterHackers.PolygonMesh;
 
 namespace MatterHackers.MatterSlice
 {
@@ -57,7 +58,7 @@ namespace MatterHackers.MatterSlice
         public Polygons polygonList = new Polygons();
         public Polygons openPolygonList = new Polygons();
 
-        public void MakePolygons(OptimizedVolume optomizedMesh, ConfigConstants.REPAIR_OUTLINES outlineRepairTypes)
+        public void MakePolygons(MeshGroup optomizedMesh, ConfigConstants.REPAIR_OUTLINES outlineRepairTypes)
         {
             for (int startingSegmentIndex = 0; startingSegmentIndex < segmentList.Count; startingSegmentIndex++)
             {

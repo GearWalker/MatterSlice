@@ -25,6 +25,7 @@ using System.Diagnostics;
 using MatterSlice.ClipperLib;
 using MatterHackers.PolygonMesh;
 using MatterHackers.PolygonMesh.Processors;
+using MatterHackers.VectorMath;
 
 namespace MatterHackers.MatterSlice
 {
@@ -100,7 +101,21 @@ namespace MatterHackers.MatterSlice
             optomizedModel = loadedModels[0];
             LogOutput.log("Loaded from disk in {0:0.0}s\n".FormatWith(timeKeeper.Elapsed.Seconds));
             timeKeeper.Restart();
-            optomizedModel.SetPositionAndSize(simpleModel, config.positionToPlaceObjectCenter_um.X, config.positionToPlaceObjectCenter_um.Y, -config.bottomClipAmount_um, config.centerObjectInXy);
+            AxisAlignedBoundingBox boundingBox = optomizedModel.GetAxisAlignedBoundingBox();
+            if (config.centerObjectInXy)
+            {
+                Vector3 groupCenter = boundingBox.minXYZ + (boundingBox.maxXYZ - boundingBox.minXYZ) / 2;
+                Vector3 offset = new Vector3(config.positionToPlaceObjectCenter.X - groupCenter.x,
+                    config.positionToPlaceObjectCenter.Y - groupCenter.y,
+                    -boundingBox.minXYZ.z - config.bottomClipAmount);
+                optomizedModel.Translate(offset);
+            }
+            else
+            {
+                Vector3 offset = new Vector3(0, 0, -boundingBox.minXYZ.z - config.bottomClipAmount);
+                optomizedModel.Translate(offset);
+            }
+
             for (int meshIndex = 0; meshIndex < optomizedModel.Meshes.Count; meshIndex++)
             {
                 LogOutput.log("  Face counts: {0}\n".FormatWith(optomizedModel.Meshes[meshIndex].Faces.Count));
@@ -170,9 +185,10 @@ namespace MatterHackers.MatterSlice
             LogOutput.log("Generating support map...\n");
             storage.support.GenerateSupportGrid(optomizedModel, config);
 
-            storage.modelSize = optomizedModel.size_um;
-            storage.modelMin = optomizedModel.minXYZ_um;
-            storage.modelMax = optomizedModel.maxXYZ_um;
+            AxisAlignedBoundingBox bounds = optomizedModel.GetAxisAlignedBoundingBox();
+            storage.modelSize_um = new Point3((int)(bounds.XSize * 1000 + .5), (int)(bounds.YSize * 1000 + .5), (int)(bounds.ZSize * 1000 + .5));
+            storage.modelMin_um = new Point3((int)(bounds.minXYZ.x * 1000 + .5), (int)(bounds.minXYZ.y * 1000 + .5), (int)(bounds.minXYZ.z * 1000 + .5));
+            storage.modelMax_um = new Point3((int)(bounds.maxXYZ.x * 1000 + .5), (int)(bounds.maxXYZ.y * 1000 + .5), (int)(bounds.maxXYZ.z * 1000 + .5));
 
             LogOutput.log("Generating layer parts...\n");
             for (int volumeIndex = 0; volumeIndex < slicerList.Count; volumeIndex++)
@@ -258,12 +274,12 @@ namespace MatterHackers.MatterSlice
             {
                 Polygon p = new Polygon();
                 storage.wipeTower.Add(p);
-                p.Add(new IntPoint(storage.modelMin.x - 3000, storage.modelMax.y + 3000));
-                p.Add(new IntPoint(storage.modelMin.x - 3000, storage.modelMax.y + 3000 + config.wipeTowerSize_um));
-                p.Add(new IntPoint(storage.modelMin.x - 3000 - config.wipeTowerSize_um, storage.modelMax.y + 3000 + config.wipeTowerSize_um));
-                p.Add(new IntPoint(storage.modelMin.x - 3000 - config.wipeTowerSize_um, storage.modelMax.y + 3000));
+                p.Add(new IntPoint(storage.modelMin_um.x - 3000, storage.modelMax_um.y + 3000));
+                p.Add(new IntPoint(storage.modelMin_um.x - 3000, storage.modelMax_um.y + 3000 + config.wipeTowerSize_um));
+                p.Add(new IntPoint(storage.modelMin_um.x - 3000 - config.wipeTowerSize_um, storage.modelMax_um.y + 3000 + config.wipeTowerSize_um));
+                p.Add(new IntPoint(storage.modelMin_um.x - 3000 - config.wipeTowerSize_um, storage.modelMax_um.y + 3000));
 
-                storage.wipePoint = new IntPoint(storage.modelMin.x - 3000 - config.wipeTowerSize_um / 2, storage.modelMax.y + 3000 + config.wipeTowerSize_um / 2);
+                storage.wipePoint = new IntPoint(storage.modelMin_um.x - 3000 - config.wipeTowerSize_um / 2, storage.modelMax_um.y + 3000 + config.wipeTowerSize_um / 2);
             }
 
             if (config.enableRaft)
@@ -351,7 +367,7 @@ namespace MatterHackers.MatterSlice
                 gcode.writeRetraction();
                 gcode.setZ(maxObjectHeight + 5000);
                 gcode.writeMove(gcode.getPositionXY(), config.travelSpeed, 0);
-                gcode.writeMove(new IntPoint(storage.modelMin.x, storage.modelMin.y), config.travelSpeed, 0);
+                gcode.writeMove(new IntPoint(storage.modelMin_um.x, storage.modelMin_um.y), config.travelSpeed, 0);
             }
             fileNr++;
             
@@ -489,7 +505,7 @@ namespace MatterHackers.MatterSlice
             gcode.writeFanCommand(0);
 
             //Store the object height for when we are printing multiple objects, as we need to clear every one of them when moving to the next position.
-            maxObjectHeight = Math.Max(maxObjectHeight, storage.modelSize.z);
+            maxObjectHeight = Math.Max(maxObjectHeight, storage.modelSize_um.z);
         }
 
         private int GetFanSpeed(int layerIndex, GCodePlanner gcodeLayer)
