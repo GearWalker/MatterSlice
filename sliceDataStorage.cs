@@ -148,73 +148,58 @@ namespace MatterHackers.MatterSlice
                 for (int faceIndex = 0; faceIndex < vol.facesTriangle.Count; faceIndex++)
                 {
                     OptimizedFace faceTriangle = vol.facesTriangle[faceIndex];
-                    Point3 v0 = vol.vertices[faceTriangle.vertexIndex[0]].position;
-                    Point3 v1 = vol.vertices[faceTriangle.vertexIndex[1]].position;
-                    Point3 v2 = vol.vertices[faceTriangle.vertexIndex[2]].position;
+                    Point3 v0Orig = vol.vertices[faceTriangle.vertexIndex[0]].position;
+                    Point3 v1Orig = vol.vertices[faceTriangle.vertexIndex[1]].position;
+                    Point3 v2Orig = vol.vertices[faceTriangle.vertexIndex[2]].position;
 
                     // get the angle of this polygon
                     double angleFromHorizon;
+                    FPoint3 v0f = new FPoint3(v0Orig);
+                    FPoint3 v1f = new FPoint3(v1Orig);
+                    FPoint3 v2f = new FPoint3(v2Orig);
+                    FPoint3 normal = (v1f - v0f).Cross(v2f - v0f);
+                    normal /= normal.Length;
+
+                    angleFromHorizon = (Math.PI / 2) - FPoint3.CalculateAngle(normal, FPoint3.Up);
+
+                    if (angleFromHorizon < Math.PI / 2)
                     {
-                        FPoint3 v0f = new FPoint3(v0);
-                        FPoint3 v1f = new FPoint3(v1);
-                        FPoint3 v2f = new FPoint3(v2);
-                        FPoint3 normal = (v1f - v0f).Cross(v2f - v0f);
-                        normal.z = Math.Abs(normal.z);
+                        double distanceToPlaneFromOrigin = FPoint3.Dot(normal, v0f);
 
-                        angleFromHorizon = (Math.PI / 2) - FPoint3.CalculateAngle(normal, FPoint3.Up);
-                    }
+                        Point3 v0 = v0Orig;
+                        Point3 v1 = v1Orig;
+                        Point3 v2 = v2Orig;
 
-                    v0.x = (int)((v0.x - this.gridOffset.X) / (double)this.gridScale + .5);
-                    v0.y = (int)((v0.y - this.gridOffset.Y) / (double)this.gridScale + .5);
-                    v1.x = (int)((v1.x - this.gridOffset.X) / (double)this.gridScale + .5);
-                    v1.y = (int)((v1.y - this.gridOffset.Y) / (double)this.gridScale + .5);
-                    v2.x = (int)((v2.x - this.gridOffset.X) / (double)this.gridScale + .5);
-                    v2.y = (int)((v2.y - this.gridOffset.Y) / (double)this.gridScale + .5);
+                        v0.x = (int)((v0.x - this.gridOffset.X) / (double)this.gridScale + .5);
+                        v0.y = (int)((v0.y - this.gridOffset.Y) / (double)this.gridScale + .5);
+                        v1.x = (int)((v1.x - this.gridOffset.X) / (double)this.gridScale + .5);
+                        v1.y = (int)((v1.y - this.gridOffset.Y) / (double)this.gridScale + .5);
+                        v2.x = (int)((v2.x - this.gridOffset.X) / (double)this.gridScale + .5);
+                        v2.y = (int)((v2.y - this.gridOffset.Y) / (double)this.gridScale + .5);
 
-                    if (v0.x > v1.x) swap(ref v0, ref v1);
-                    if (v1.x > v2.x) swap(ref v1, ref v2);
-                    if (v0.x > v1.x) swap(ref v0, ref v1);
-                    for (long x = v0.x; x < v1.x; x++)
-                    {
-                        long y0 = (long)(v0.y + (v1.y - v0.y) * (x - v0.x) / (double)(v1.x - v0.x) + .5);
-                        long y1 = (long)(v0.y + (v2.y - v0.y) * (x - v0.x) / (double)(v2.x - v0.x) + .5);
-                        long z0 = (long)(v0.z + (v1.z - v0.z) * (x - v0.x) / (double)(v1.x - v0.x) + .5);
-                        long z1 = (long)(v0.z + (v2.z - v0.z) * (x - v0.x) / (double)(v2.x - v0.x) + .5);
+                        long minX = Math.Min(v0.x, Math.Min(v1.x, v2.x));
+                        long maxX = Math.Max(v0.x, Math.Max(v1.x, v2.x));
+                        long minY = Math.Min(v0.y, Math.Min(v1.y, v2.y));
+                        long maxY = Math.Max(v0.y, Math.Max(v1.y, v2.y));
 
-                        if (y0 > y1)
+                        for (long x = minX; x < maxX; x++)
                         {
-                            swap(ref y0, ref y1);
-                            swap(ref z0, ref z1);
-                        }
-
-                        for (long y = y0; y < y1; y++)
-                        {
-                            SupportPoint newSupportPoint = new SupportPoint((int)(z0 + (z1 - z0) * (y - y0) / (double)(y1 - y0) + .5), angleFromHorizon);
-                            this.xYGridOfSupportPoints[(int)(x + y * this.gridWidth)].Add(newSupportPoint);
-                        }
-                    }
-
-                    for (int x = v1.x; x < v2.x; x++)
-                    {
-                        long y0 = (long)(v1.y + (v2.y - v1.y) * (x - v1.x) / (double)(v2.x - v1.x) + .5);
-                        long y1 = (long)(v0.y + (v2.y - v0.y) * (x - v0.x) / (double)(v2.x - v0.x) + .5);
-                        long z0 = (long)(v1.z + (v2.z - v1.z) * (x - v1.x) / (double)(v2.x - v1.x) + .5);
-                        long z1 = (long)(v0.z + (v2.z - v0.z) * (x - v0.x) / (double)(v2.x - v0.x) + .5);
-
-                        if (y0 > y1)
-                        {
-                            swap(ref y0, ref y1);
-                            swap(ref z0, ref z1);
-                        }
-
-                        for (int y = (int)y0; y < y1; y++)
-                        {
-                            this.xYGridOfSupportPoints[x + y * this.gridWidth].Add(new SupportPoint((int)(z0 + (z1 - z0) * (double)(y - y0) / (double)(y1 - y0) + .5), angleFromHorizon));
+                            for (long y = minY; y < maxY; y++)
+                            {
+                                Point3 ray = new Point3(x * gridScale + gridOffset.X, y * gridScale + gridOffset.Y, 0);
+                                if (Have2DHitOnTriangle(v0Orig, v1Orig, v2Orig, ray.x, ray.y))
+                                {
+                                    double z = DistanceToPlane(normal, new FPoint3(ray.x, ray.y, ray.z), distanceToPlaneFromOrigin);
+                                    SupportPoint newSupportPoint = new SupportPoint((int)z, angleFromHorizon);
+                                    this.xYGridOfSupportPoints[(int)(x + y * this.gridWidth)].Add(newSupportPoint);
+                                }
+                            }
                         }
                     }
                 }
             }
 
+            // now remove duplicates (try to make it a better bottom and top list)
             for (int x = 0; x < this.gridWidth; x++)
             {
                 for (int y = 0; y < this.gridHeight; y++)
@@ -225,7 +210,6 @@ namespace MatterHackers.MatterSlice
 
                     if(currentList.Count > 1)
                     {
-                        // now remove duplicates (try to make it a better bottom and top list)
                         for (int i = currentList.Count-1; i>=1; i--)
                         {
                             if (currentList[i].z == currentList[i - 1].z)
@@ -238,6 +222,54 @@ namespace MatterHackers.MatterSlice
             }
             this.gridOffset.X += this.gridScale / 2;
             this.gridOffset.Y += this.gridScale / 2;
+        }
+
+        static readonly double TreatAsZero = 0.001;
+        public double DistanceToPlane(FPoint3 planeNormal, FPoint3 upRay, double distanceToPlaneFromOrigin)
+        {
+
+            double normalDotRayDirection = FPoint3.Dot(planeNormal, FPoint3.Up);
+            if (normalDotRayDirection < TreatAsZero && normalDotRayDirection > -TreatAsZero) // the ray is parallel to the plane
+            {
+                return 0;
+            }
+
+            double distanceToRayOriginFromOrigin = FPoint3.Dot(planeNormal, upRay);
+
+            double distanceToPlaneFromRayOrigin = distanceToPlaneFromOrigin - distanceToRayOriginFromOrigin;
+
+            bool originInFrontOfPlane = distanceToPlaneFromRayOrigin < 0;
+
+            double distanceToHit = distanceToPlaneFromRayOrigin / normalDotRayDirection;
+            return distanceToHit;
+        }
+
+        public int FindSideOfLine(Point3 sidePoint0, Point3 sidePoint1, double x, double y)
+        {
+            double leftX = x - sidePoint0.x;
+            double leftY = y - sidePoint0.y;
+            double rightX = x - sidePoint1.x;
+            double rightY = y - sidePoint1.y;
+            if (leftX * rightY - leftY * rightX < 0)
+            {
+                return 1;
+            }
+
+            return -1;
+        }
+
+        bool Have2DHitOnTriangle(Point3 v0, Point3 v1, Point3 v2, double x, double y)
+        {
+            // check the bounding rect
+            int sumOfLineSides = FindSideOfLine(v0, v1, x, y);
+            sumOfLineSides += FindSideOfLine(v1, v2, x, y);
+            sumOfLineSides += FindSideOfLine(v2, v0, x, y);
+            if (sumOfLineSides == -3 || sumOfLineSides == 3)
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 

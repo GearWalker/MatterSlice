@@ -81,17 +81,17 @@ namespace MatterHackers.MatterSlice
             return x * x + y * y + z * z;
         }
 
-        public static double CalculateAngle(FPoint3 first, FPoint3 second)
-        {
-            return Math.Acos((FPoint3.Dot(first, second)) / (first.Length * second.Length));
-        }
-
         public double Length
         {
             get
             {
                 return Math.Sqrt(LengthSquared());
             }
+        }
+
+        public static double CalculateAngle(FPoint3 first, FPoint3 second)
+        {
+            return Math.Acos((FPoint3.Dot(first, second)) / (first.Length * second.Length));
         }
 
         public static double Dot(FPoint3 left, FPoint3 right)
@@ -130,17 +130,7 @@ namespace MatterHackers.MatterSlice
 
         bool testLength(double len)
         {
-            return vSize2() <= len * len;
-        }
-
-        double vSize2()
-        {
-            return x * x + y * y + z * z;
-        }
-
-        double vSize()
-        {
-            return Math.Sqrt(vSize2());
+            return LengthSquared() <= len * len;
         }
     }
 

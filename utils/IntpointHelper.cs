@@ -46,6 +46,11 @@ namespace MatterHackers.MatterSlice
             this.z = _z;
         }
 
+        public override string ToString()
+        {
+            return "x:{0}, y:{1}, z:{2}".FormatWith(x, y, z);
+        }
+
         public static Point3 operator +(Point3 left, Point3 right)
         {
             return new Point3(left.x + right.x, left.y + right.y, left.z + right.z);
