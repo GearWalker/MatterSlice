@@ -164,6 +164,7 @@ namespace MatterHackers.MatterSlice
 
                     if (angleFromHorizon < Math.PI / 2)
                     {
+						// find the plane constant, the distance to the plane from the origin
                         double distanceToPlaneFromOrigin = FPoint3.Dot(normal, v0f);
 
                         Point3 v0 = v0Orig;
@@ -189,7 +190,7 @@ namespace MatterHackers.MatterSlice
                                 Point3 ray = new Point3(x * gridScale + gridOffset.X, y * gridScale + gridOffset.Y, 0);
                                 if (Have2DHitOnTriangle(v0Orig, v1Orig, v2Orig, ray.x, ray.y))
                                 {
-                                    double z = DistanceToPlane(normal, new FPoint3(ray.x, ray.y, ray.z), distanceToPlaneFromOrigin);
+                                    double z = DistanceToPlane(normal, new FPoint3(ray.x, ray.y, 0), distanceToPlaneFromOrigin);
                                     SupportPoint newSupportPoint = new SupportPoint((int)z, angleFromHorizon);
                                     this.xYGridOfSupportPoints[(int)(x + y * this.gridWidth)].Add(newSupportPoint);
                                 }
