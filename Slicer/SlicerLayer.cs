@@ -162,52 +162,7 @@ namespace MatterHackers.MatterSlice
                 }
             }
 
-            // Clear the segmentList to save memory, it is no longer needed after this point.
-#if !DEBUG
-            segmentList.Clear();
-#endif
-
-            // Connecting polygons that are not closed yet, as models are not always perfect manifold we need to join some stuff up to get proper polygons
-            // First link up polygon ends that are within 2 microns.
-            for (int polygonAIndex = 0; polygonAIndex < openPolygonList.Count; polygonAIndex++)
-            {
-                if (openPolygonList[polygonAIndex].Count < 1)
-                {
-                    continue;
-                }
-
-                for (int polygonBIndex = 0; polygonBIndex < openPolygonList.Count; polygonBIndex++)
-                {
-                    if (openPolygonList[polygonBIndex].Count < 1)
-                    {
-                        continue;
-                    }
-
-                    // get the delta between the last point of A and the first point of B
-                    IntPoint deltaLastAToFirstB = openPolygonList[polygonAIndex][openPolygonList[polygonAIndex].Count - 1] - openPolygonList[polygonBIndex][0];
-                    long distSquared = deltaLastAToFirstB.LengthSquared();
-
-                    if (distSquared < 2 * 2)
-                    {
-                        // If they are the same list than we can close this polygon to itself
-                        if (polygonAIndex == polygonBIndex)
-                        {
-                            polygonList.Add(new Polygon(openPolygonList[polygonAIndex]));
-                            openPolygonList[polygonAIndex].Clear();
-                            break;
-                        }
-                        else // B can continue onto A so add it to the end
-                        {
-                            // 
-                            openPolygonList[polygonAIndex].AddRange(openPolygonList[polygonBIndex]);
-
-                            openPolygonList[polygonBIndex].Clear();
-                        }
-                    }
-                }
-            }
-
-            //Next link up all the missing ends, closing up the smallest gaps first. This is an inefficient implementation which can run in O(n*n*n) time.
+            // Link up all the missing ends, closing up the smallest gaps first. This is an inefficient implementation which can run in O(n*n*n) time.
             while (true)
             {
                 long bestScore = 10000 * 10000;
@@ -236,6 +191,12 @@ namespace MatterHackers.MatterSlice
                             bestA = polygonAIndex;
                             bestB = polygonBIndex;
                             reversed = false;
+
+							if (bestScore == 0)
+							{
+								// found a perfect match stop looking
+								break;
+							}
                         }
 
                         if (polygonAIndex != polygonBIndex)
@@ -248,10 +209,22 @@ namespace MatterHackers.MatterSlice
                                 bestA = polygonAIndex;
                                 bestB = polygonBIndex;
                                 reversed = true;
-                            }
+							
+								if (bestScore == 0)
+								{
+									// found a perfect match stop looking
+									break;
+								}
+							}
                         }
-                    }
-                }
+					}
+				
+					if (bestScore == 0)
+					{
+						// found a perfect match stop looking
+						break;
+					}
+				}
 
                 if (bestScore >= 10000 * 10000)
                 {
@@ -455,7 +428,7 @@ namespace MatterHackers.MatterSlice
             }
 
             //Finally optimize all the polygons. Every point removed saves time in the long run.
-            long minimumDistanceToCreateNewPosition = 10;
+			double minimumDistanceToCreateNewPosition = 10;
             polygonList = Clipper.CleanPolygons(polygonList, minimumDistanceToCreateNewPosition);
         }
 

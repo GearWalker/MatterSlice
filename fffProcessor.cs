@@ -78,6 +78,10 @@ namespace MatterHackers.MatterSlice
             timeKeeper.Restart();
             LogOutput.log("Analyzing and optimizing model...\n");
             optomizedModel = new OptimizedModel(simpleModel);
+			if (MatterSlice.Canceled)
+			{
+				return;
+			}
             optomizedModel.SetPositionAndSize(simpleModel, config.positionToPlaceObjectCenter_um.X, config.positionToPlaceObjectCenter_um.Y, -config.bottomClipAmount_um, config.centerObjectInXy);
             for (int volumeIndex = 0; volumeIndex < simpleModel.volumes.Count; volumeIndex++)
             {
@@ -94,7 +98,15 @@ namespace MatterHackers.MatterSlice
             sliceModels(storage);
 
             processSliceData(storage);
-            writeGCode(storage);
+			if (MatterSlice.Canceled)
+			{
+				return;
+			}
+			writeGCode(storage);
+			if (MatterSlice.Canceled)
+			{
+				return;
+			}
 
             LogOutput.logProgress("process", 1, 1); //Report to the GUI that a file has been fully processed.
             LogOutput.log("Total time elapsed {0:0.00}s.\n".FormatWith(timeKeeperTotal.Elapsed.Seconds));
@@ -131,7 +143,7 @@ namespace MatterHackers.MatterSlice
             skirtConfig.setData(config.insidePerimetersSpeed, extrusionWidth, "SKIRT");
             inset0Config.setData(config.outsidePerimeterSpeed, extrusionWidth, "WALL-OUTER");
             insetXConfig.setData(config.insidePerimetersSpeed, extrusionWidth, "WALL-INNER");
-            fillConfig.setData(config.infillSpeed, extrusionWidth, "FILL");
+            fillConfig.setData(config.infillSpeed, extrusionWidth, "FILL", false);
             bridgConfig.setData(config.bridgeSpeed, extrusionWidth, "BRIDGE");
             supportNormalConfig.setData(config.supportMaterialSpeed, extrusionWidth, "SUPPORT");
             supportInterfaceConfig.setData(config.supportMaterialSpeed, extrusionWidth, "SUPPORT-INTERFACE");
@@ -218,7 +230,11 @@ namespace MatterHackers.MatterSlice
             {
                 for (int volumeIndex = 0; volumeIndex < storage.volumes.Count; volumeIndex++)
                 {
-                    int insetCount = config.numberOfPerimeters;
+					if (MatterSlice.Canceled)
+					{
+						return;
+					}
+					int insetCount = config.numberOfPerimeters;
                     if (config.continuousSpiralOuterPerimeter && (int)(layerIndex) < config.numberOfBottomLayers && layerIndex % 2 == 1)
                     {
                         //Add extra insets every 2 layers when spiralizing, this makes bottoms of cups watertight.
@@ -246,7 +262,11 @@ namespace MatterHackers.MatterSlice
 
             for (int layerIndex = 0; layerIndex < totalLayers; layerIndex++)
             {
-                //Only generate bottom and top layers and infill for the first X layers when spiralize is choosen.
+				if (MatterSlice.Canceled)
+				{
+					return;
+				}
+				//Only generate bottom and top layers and infill for the first X layers when spiralize is choosen.
                 if (!config.continuousSpiralOuterPerimeter || (int)(layerIndex) < config.numberOfBottomLayers)
                 {
                     for (int volumeIndex = 0; volumeIndex < storage.volumes.Count; volumeIndex++)
@@ -402,7 +422,11 @@ namespace MatterHackers.MatterSlice
             int volumeIdx = 0;
             for (int layerIndex = 0; layerIndex < totalLayers; layerIndex++)
             {
-                LogOutput.log("Writing Layers {0}/{1}\n".FormatWith(layerIndex + 1, totalLayers));
+				if (MatterSlice.Canceled)
+				{
+					return;
+				}
+				LogOutput.log("Writing Layers {0}/{1}\n".FormatWith(layerIndex + 1, totalLayers));
 
                 LogOutput.logProgress("export", layerIndex + 1, totalLayers);
 
@@ -417,19 +441,23 @@ namespace MatterHackers.MatterSlice
                     skirtConfig.setData(config.firstLayerSpeed, extrusionWidth_um, "SKIRT");
                     inset0Config.setData(config.firstLayerSpeed, extrusionWidth_um, "WALL-OUTER");
                     insetXConfig.setData(config.firstLayerSpeed, extrusionWidth_um, "WALL-INNER");
-                    fillConfig.setData(config.firstLayerSpeed, extrusionWidth_um, "FILL");
+                    fillConfig.setData(config.firstLayerSpeed, extrusionWidth_um, "FILL", false);
                     bridgConfig.setData(config.firstLayerSpeed, extrusionWidth_um, "BRIDGE");
-                }
+					
+					supportNormalConfig.setData(config.firstLayerSpeed, config.supportExtrusionWidth_um, "SUPPORT");
+					supportInterfaceConfig.setData(config.firstLayerSpeed, config.extrusionWidth_um, "SUPPORT-INTERFACE");
+				}
                 else
                 {
                     skirtConfig.setData(config.insidePerimetersSpeed, extrusionWidth_um, "SKIRT");
                     inset0Config.setData(config.outsidePerimeterSpeed, extrusionWidth_um, "WALL-OUTER");
                     insetXConfig.setData(config.insidePerimetersSpeed, extrusionWidth_um, "WALL-INNER");
-                    fillConfig.setData(config.infillSpeed, extrusionWidth_um, "FILL");
+                    fillConfig.setData(config.infillSpeed, extrusionWidth_um, "FILL", false);
                     bridgConfig.setData(config.bridgeSpeed, extrusionWidth_um, "BRIDGE");
-                }
-                supportNormalConfig.setData(config.supportMaterialSpeed, config.supportExtrusionWidth_um, "SUPPORT");
-                supportInterfaceConfig.setData(config.supportMaterialSpeed, config.extrusionWidth_um, "SUPPORT-INTERFACE");
+					
+					supportNormalConfig.setData(config.supportMaterialSpeed, config.supportExtrusionWidth_um, "SUPPORT");
+					supportInterfaceConfig.setData(config.supportMaterialSpeed, config.extrusionWidth_um, "SUPPORT-INTERFACE");
+				}
 
                 gcode.writeComment("LAYER:{0}".FormatWith(layerIndex));
                 if (layerIndex == 0)
@@ -571,7 +599,7 @@ namespace MatterHackers.MatterSlice
                 gcodeLayer.setAlwaysRetract(!config.avoidCrossingPerimeters);
             }
 
-            PathOrderOptimizer partOrderOptimizer = new PathOrderOptimizer(new IntPoint());
+			PathOrderOptimizer partOrderOptimizer = new PathOrderOptimizer(new IntPoint());
             for (int partIndex = 0; partIndex < layer.parts.Count; partIndex++)
             {
                 partOrderOptimizer.AddPolygon(layer.parts[partIndex].insets[0][0]);
@@ -584,14 +612,28 @@ namespace MatterHackers.MatterSlice
 
                 if (config.avoidCrossingPerimeters)
                 {
-                    gcodeLayer.setCombBoundary(part.combBoundery);
+                    gcodeLayer.SetOuterPerimetersToAvoidCrossing(part.combBoundery);
                 }
                 else
                 {
                     gcodeLayer.setAlwaysRetract(true);
                 }
 
-                if (config.numberOfPerimeters > 0)
+				Polygons fillPolygons = new Polygons();
+				Polygons bridgePolygons = new Polygons();
+
+				CalculateInfillData(storage, volumeIndex, layerIndex, extrusionWidth_um, part, ref fillPolygons, ref bridgePolygons);
+
+				// Write the bidge polgons out first so the perimeter will have more to hold to while bridging the gaps.
+				// It would be even better to slow down the perimeters that are part of bridges but that is a bit harder.
+				if (bridgePolygons.Count > 0)
+				{
+					gcode.writeFanCommand(config.bridgeFanSpeedPercent);
+					gcodeLayer.writePolygonsByOptimizer(bridgePolygons, bridgConfig);
+					gcode.writeFanCommand(fanSpeedPercent);
+				}
+				
+				if (config.numberOfPerimeters > 0)
                 {
                     if (partCounter > 0)
                     {
@@ -600,108 +642,120 @@ namespace MatterHackers.MatterSlice
 
                     if (config.continuousSpiralOuterPerimeter)
                     {
-                        if ((int)(layerIndex) >= config.numberOfBottomLayers)
+                        if (layerIndex >= config.numberOfBottomLayers)
                         {
                             inset0Config.spiralize = true;
                         }
 
-                        if ((int)(layerIndex) == config.numberOfBottomLayers && part.insets.Count > 0)
+                        if (layerIndex == config.numberOfBottomLayers && part.insets.Count > 0)
                         {
                             gcodeLayer.writePolygonsByOptimizer(part.insets[0], insetXConfig);
                         }
                     }
 
-                    for (int insetNr = part.insets.Count - 1; insetNr > -1; insetNr--)
-                    {
-                        if (insetNr == 0)
-                        {
-                            gcodeLayer.writePolygonsByOptimizer(part.insets[insetNr], inset0Config);
-                        }
-                        else
-                        {
-                            gcodeLayer.writePolygonsByOptimizer(part.insets[insetNr], insetXConfig);
-                        }
-                    }
-                }
-
-                Polygons fillPolygons = new Polygons();
-                Polygons bridgePolygons = new Polygons();
-
-                // generate infill for outline including bridging
-                foreach(Polygons outline in part.skinOutline.SplitIntoParts())
-                {
-                    double partFillAngle = config.infillStartingAngle;
-                    if ((layerIndex & 1) == 1)
-                    {
-                        partFillAngle += 90;
-                    }
-                    if (layerIndex > 0)
-                    {
-                        double bridgeAngle;
-                        if (Bridge.BridgeAngle(outline, storage.volumes[volumeIndex].layers[layerIndex - 1], out bridgeAngle))
-                        {
-                            Infill.GenerateLinePaths(outline, ref bridgePolygons, extrusionWidth_um, config.infillExtendIntoPerimeter_um, bridgeAngle);
-                        }
-                        else
-                        {
-                            Infill.GenerateLinePaths(outline, ref fillPolygons, extrusionWidth_um, config.infillExtendIntoPerimeter_um, partFillAngle);
-                        }
-                    }
-                    else
-                    {
-                        Infill.GenerateLinePaths(outline, ref fillPolygons, extrusionWidth_um, config.infillExtendIntoPerimeter_um, partFillAngle);
-                    }
-                }
-
-                double fillAngle = config.infillStartingAngle;
-
-                // generate the infill for this part on this layer
-                if (config.infillPercent > 0)
-                {
-                    switch (config.infillType)
-                    {
-                        case ConfigConstants.INFILL_TYPE.LINES:
-                            if ((layerIndex & 1) == 1)
-                            {
-                                fillAngle += 90;
-                            }
-                            Infill.GenerateLineInfill(config, part.sparseOutline, ref fillPolygons, extrusionWidth_um, fillAngle);
-                            break;
-
-                        case ConfigConstants.INFILL_TYPE.GRID:
-                            Infill.GenerateGridInfill(config, part.sparseOutline, ref fillPolygons, extrusionWidth_um, fillAngle);
-                            break;
-
-                        case ConfigConstants.INFILL_TYPE.TRIANGLES:
-                            Infill.GenerateTriangleInfill(config, part.sparseOutline, ref fillPolygons, extrusionWidth_um, fillAngle, layer.printZ);
-                            break;
-
-                        case ConfigConstants.INFILL_TYPE.CONCENTRIC:
-                            Infill.generateConcentricInfill(config, part.sparseOutline, ref fillPolygons, extrusionWidth_um, fillAngle);
-                            break;
-
-                        default:
-                            throw new NotImplementedException();
-                    }
-                }
-
-                if (bridgePolygons.Count > 0)
-                {
-                    gcode.writeFanCommand(config.bridgeFanSpeedPercent);
-                    gcodeLayer.writePolygonsByOptimizer(bridgePolygons, bridgConfig);
-                    gcode.writeFanCommand(fanSpeedPercent);
+					// If we are on the very first layer we start with the outside in so that we can stick to the bed better.
+					if (config.outsidePerimetersFirst || layerIndex == 0)
+					{
+						// First the outside (this helps with accuracy)
+						if (part.insets.Count > 0)
+						{
+							gcodeLayer.writePolygonsByOptimizer(part.insets[0], inset0Config);
+						}
+						for (int perimeterIndex = 1; perimeterIndex < part.insets.Count; perimeterIndex++)
+						{
+							gcodeLayer.writePolygonsByOptimizer(part.insets[perimeterIndex], insetXConfig);
+						}
+					}
+					else // This is so we can do overhanges better (the outside can stick a bit to the inside).
+					{
+						// Print everything but the first perimeter from the outside in so the little parts have more to stick to.
+						for (int perimeterIndex = 1; perimeterIndex < part.insets.Count; perimeterIndex++)
+						{
+							gcodeLayer.writePolygonsByOptimizer(part.insets[perimeterIndex], insetXConfig);
+						}
+						// then 0
+						if (part.insets.Count > 0)
+						{
+							gcodeLayer.writePolygonsByOptimizer(part.insets[0], inset0Config);
+						}
+					}
                 }
 
                 gcodeLayer.writePolygonsByOptimizer(fillPolygons, fillConfig);
 
                 //After a layer part, make sure the nozzle is inside the comb boundary, so we do not retract on the perimeter.
-                if (!config.continuousSpiralOuterPerimeter || (int)(layerIndex) < config.numberOfBottomLayers)
+                if (!config.continuousSpiralOuterPerimeter || layerIndex < config.numberOfBottomLayers)
                 {
-                    gcodeLayer.moveInsideCombBoundary(extrusionWidth_um * 2);
+                    gcodeLayer.MoveInsideTheOuterPerimeter(extrusionWidth_um * 2);
                 }
             }
-            gcodeLayer.setCombBoundary(null);
+            gcodeLayer.SetOuterPerimetersToAvoidCrossing(null);
         }
+
+		private void CalculateInfillData(SliceDataStorage storage, int volumeIndex, int layerIndex, int extrusionWidth_um, SliceLayerPart part, ref Polygons fillPolygons, ref Polygons bridgePolygons)
+		{
+			// generate infill for outline including bridging
+			foreach (Polygons outline in part.skinOutline.SplitIntoParts())
+			{
+				double partFillAngle = config.infillStartingAngle;
+				if ((layerIndex & 1) == 1)
+				{
+					partFillAngle += 90;
+				}
+				if (layerIndex > 0)
+				{
+					double bridgeAngle;
+					if (Bridge.BridgeAngle(outline, storage.volumes[volumeIndex].layers[layerIndex - 1], out bridgeAngle))
+					{
+						Infill.GenerateLinePaths(outline, ref bridgePolygons, extrusionWidth_um, config.infillExtendIntoPerimeter_um, bridgeAngle);
+					}
+					else
+					{
+						Infill.GenerateLinePaths(outline, ref fillPolygons, extrusionWidth_um, config.infillExtendIntoPerimeter_um, partFillAngle);
+					}
+				}
+				else
+				{
+					Infill.GenerateLinePaths(outline, ref fillPolygons, extrusionWidth_um, config.infillExtendIntoPerimeter_um, partFillAngle);
+				}
+			}
+
+			double fillAngle = config.infillStartingAngle;
+
+			// generate the infill for this part on this layer
+			if (config.infillPercent > 0)
+			{
+				switch (config.infillType)
+				{
+					case ConfigConstants.INFILL_TYPE.LINES:
+						if ((layerIndex & 1) == 1)
+						{
+							fillAngle += 90;
+						}
+						Infill.GenerateLineInfill(config, part.sparseOutline, ref fillPolygons, extrusionWidth_um, fillAngle);
+						break;
+
+					case ConfigConstants.INFILL_TYPE.GRID:
+						Infill.GenerateGridInfill(config, part.sparseOutline, ref fillPolygons, extrusionWidth_um, fillAngle);
+						break;
+
+					case ConfigConstants.INFILL_TYPE.TRIANGLES:
+						Infill.GenerateTriangleInfill(config, part.sparseOutline, ref fillPolygons, extrusionWidth_um, fillAngle);
+						break;
+
+					case ConfigConstants.INFILL_TYPE.HEXAGON:
+						Infill.GenerateHexagonInfill(config, part.sparseOutline, ref fillPolygons, extrusionWidth_um, fillAngle, layerIndex);
+						break;
+
+					case ConfigConstants.INFILL_TYPE.CONCENTRIC:
+						Infill.generateConcentricInfill(config, part.sparseOutline, ref fillPolygons, extrusionWidth_um, fillAngle);
+						break;
+
+					default:
+						throw new NotImplementedException();
+				}
+			}
+		}
 
         void AddSupportToGCode(SliceDataStorage storage, GCodePlanner gcodeLayer, int layerIndex, ConfigSettings config)
         {
@@ -809,7 +863,7 @@ namespace MatterHackers.MatterSlice
 
                 if (config.avoidCrossingPerimeters)
                 {
-                    gcodeLayer.setCombBoundary(island);
+                    gcodeLayer.SetOuterPerimetersToAvoidCrossing(island);
                 }
 
                 switch (interfaceLayer)
@@ -830,7 +884,7 @@ namespace MatterHackers.MatterSlice
                         throw new NotImplementedException();
                 }
 
-                gcodeLayer.setCombBoundary(null);
+                gcodeLayer.SetOuterPerimetersToAvoidCrossing(null);
             }
         }
 
@@ -850,5 +904,13 @@ namespace MatterHackers.MatterSlice
             //Make sure we wipe the old extruder on the wipe tower.
             gcodeLayer.writeTravel(storage.wipePoint - config.extruderOffsets[prevExtruder] + config.extruderOffsets[gcodeLayer.getExtruder()]);
         }
-    }
+
+		public void Cancel()
+		{
+			if (gcode.isOpened())
+			{
+				gcode.Close();
+			}
+		}
+	}
 }

@@ -125,8 +125,10 @@ namespace MatterHackers.MatterSlice
             return gcodeFileStream != null;
         }
 
-        public void setExtrusion(int layerThickness, int filamentDiameter, double extrusionMultiplier)
+		public void setExtrusion(int layerThickness, int filamentDiameter, double extrusionMultiplier)
         {
+			//double feedRateRatio = 1 + (Math.PI / 4 - 1) * layerThickness / extrusionWidth;
+			//extrusionMultiplier *= feedRateRatio;
             double filamentArea = Math.PI * ((double)(filamentDiameter) / 1000.0 / 2.0) * ((double)(filamentDiameter) / 1000.0 / 2.0);
             if (outputType == ConfigConstants.OUTPUT_TYPE.ULTIGCODE)//UltiGCode uses volume extrusion as E value, and thus does not need the filamentArea in the mix.
             {
@@ -515,6 +517,7 @@ namespace MatterHackers.MatterSlice
         public int lineWidth;
         public string name;
         public bool spiralize;
+		public bool closedLoop = true;
 
         public GCodePathConfig() { }
         public GCodePathConfig(int speed, int lineWidth, string name)
@@ -524,8 +527,9 @@ namespace MatterHackers.MatterSlice
             this.name = name;
         }
 
-        public void setData(int speed, int lineWidth, string name)
+        public void setData(int speed, int lineWidth, string name, bool closedLoop = true)
         {
+			this.closedLoop = closedLoop;
             this.speed = speed;
             this.lineWidth = lineWidth;
             this.name = name;
@@ -543,7 +547,7 @@ namespace MatterHackers.MatterSlice
     }
 
     //The GCodePlanner class stores multiple moves that are planned.
-    // It facilitates the combing to keep the head inside the print.
+	// It facilitates the avoidCrossingPerimeters to keep the head inside the print.
     // It also keeps track of the print time estimate for this planning so speed adjustments can be made for the minimum-layer-time.
     public class GCodePlanner
     {
@@ -551,7 +555,7 @@ namespace MatterHackers.MatterSlice
 
         IntPoint lastPosition;
         List<GCodePath> paths = new List<GCodePath>();
-        AvoidCrossingPerimeters avoidCrossingPerimeters;
+        AvoidCrossingPerimeters outerPerimetersToAvoidCrossing;
 
         GCodePathConfig travelConfig = new GCodePathConfig();
         int extrudeSpeedFactor;
@@ -569,7 +573,7 @@ namespace MatterHackers.MatterSlice
             travelConfig = new GCodePathConfig(travelSpeed, 0, "travel");
 
             lastPosition = gcode.getPositionXY();
-            avoidCrossingPerimeters = null;
+            outerPerimetersToAvoidCrossing = null;
             extrudeSpeedFactor = 100;
             travelSpeedFactor = 100;
             extraTime = 0.0;
@@ -622,15 +626,15 @@ namespace MatterHackers.MatterSlice
             return currentExtruderIndex;
         }
 
-        public void setCombBoundary(Polygons polygons)
+        public void SetOuterPerimetersToAvoidCrossing(Polygons polygons)
         {
             if (polygons != null)
             {
-                avoidCrossingPerimeters = new AvoidCrossingPerimeters(polygons);
+                outerPerimetersToAvoidCrossing = new AvoidCrossingPerimeters(polygons);
             }
             else
             {
-                avoidCrossingPerimeters = null;
+                outerPerimetersToAvoidCrossing = null;
             }
         }
 
@@ -675,10 +679,10 @@ namespace MatterHackers.MatterSlice
                 path.Retract = true;
                 forceRetraction = false;
             }
-            else if (avoidCrossingPerimeters != null)
+            else if (outerPerimetersToAvoidCrossing != null)
             {
                 List<IntPoint> pointList = new List<IntPoint>();
-                if (avoidCrossingPerimeters.CreatePathInsideBoundary(lastPosition, positionToMoveTo, pointList))
+                if (outerPerimetersToAvoidCrossing.CreatePathInsideBoundary(lastPosition, positionToMoveTo, pointList))
                 {
                     long lineLength = 0;
                     // we can stay inside so move within the boundary
@@ -724,19 +728,19 @@ namespace MatterHackers.MatterSlice
             lastPosition = destination;
         }
 
-        public void moveInsideCombBoundary(int distance)
+        public void MoveInsideTheOuterPerimeter(int distance)
         {
-            if (avoidCrossingPerimeters == null || avoidCrossingPerimeters.PointIsInsideBoundary(lastPosition))
+            if (outerPerimetersToAvoidCrossing == null || outerPerimetersToAvoidCrossing.PointIsInsideBoundary(lastPosition))
             {
                 return;
             }
 
             IntPoint p = lastPosition;
-            if (avoidCrossingPerimeters.MovePointInsideBoundary(ref p, distance))
+            if (outerPerimetersToAvoidCrossing.MovePointInsideBoundary(ref p, distance))
             {
                 //Move inside again, so we move out of tight 90deg corners
-                avoidCrossingPerimeters.MovePointInsideBoundary(ref p, distance);
-                if (avoidCrossingPerimeters.PointIsInsideBoundary(p))
+                outerPerimetersToAvoidCrossing.MovePointInsideBoundary(ref p, distance);
+                if (outerPerimetersToAvoidCrossing.PointIsInsideBoundary(p))
                 {
                     writeTravel(p);
                     //Make sure the that any retraction happens after this move, not before it by starting a new move path.
@@ -749,17 +753,42 @@ namespace MatterHackers.MatterSlice
         {
             IntPoint currentPosition = polygon[startIndex];
             writeTravel(currentPosition);
-            for (int poisitionIndex = 1; poisitionIndex < polygon.Count; poisitionIndex++)
-            {
-                IntPoint destination = polygon[(startIndex + poisitionIndex) % polygon.Count];
-                writeExtrusionMove(destination, config);
-                currentPosition = destination;
-            }
+			if (config.closedLoop)
+			{
+				for (int positionIndex = 1; positionIndex < polygon.Count; positionIndex++)
+				{
+					IntPoint destination = polygon[(startIndex + positionIndex) % polygon.Count];
+					writeExtrusionMove(destination, config);
+					currentPosition = destination;
+				}
 
-            if (polygon.Count > 2)
-            {
-                writeExtrusionMove(polygon[startIndex], config);
-            }
+				// We need to actually close the polygon so go back to the first point
+				if (polygon.Count > 2)
+				{
+					writeExtrusionMove(polygon[startIndex], config);
+				}
+			}
+			else // we are not closed 
+			{
+				if (startIndex == 0)
+				{
+					for (int positionIndex = 1; positionIndex < polygon.Count; positionIndex++)
+					{
+						IntPoint destination = polygon[positionIndex];
+						writeExtrusionMove(destination, config);
+						currentPosition = destination;
+					}
+				}
+				else
+				{
+					for (int positionIndex = polygon.Count - 1; positionIndex >= 1; positionIndex-- )
+					{
+						IntPoint destination = polygon[(startIndex + positionIndex) % polygon.Count];
+						writeExtrusionMove(destination, config);
+						currentPosition = destination;
+					}
+				}
+			}
         }
 
         public void writePolygonsByOptimizer(Polygons polygons, GCodePathConfig config)
@@ -767,7 +796,7 @@ namespace MatterHackers.MatterSlice
             PathOrderOptimizer orderOptimizer = new PathOrderOptimizer(lastPosition);
             orderOptimizer.AddPolygons(polygons);
 
-            orderOptimizer.Optimize();
+            orderOptimizer.Optimize(config);
 
             for (int i = 0; i < orderOptimizer.bestPolygonOrderIndex.Count; i++)
             {
